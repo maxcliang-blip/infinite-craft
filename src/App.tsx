@@ -1,138 +1,200 @@
-import { useState, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Element } from './types'
 import { baseElements, findRecipe } from './recipes'
 import './App.css'
 
+interface WorkspaceElement {
+  id: string
+  element: Element
+  x: number
+  y: number
+}
+
 function App() {
   const [discovered, setDiscovered] = useState<Element[]>(baseElements)
-  const [slot1, setSlot1] = useState<Element | null>(null)
-  const [slot2, setSlot2] = useState<Element | null>(null)
-  const [result, setResult] = useState<Element | null>(null)
-  const [search, setSearch] = useState('')
+  const [workspaceElements, setWorkspaceElements] = useState<WorkspaceElement[]>([])
+  const [dragging, setDragging] = useState<string | null>(null)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const workspaceRef = useRef<HTMLDivElement>(null)
+  const nextId = useRef(0)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    return discovered.filter(
-      (el) => el.name.toLowerCase().includes(q) || el.id.includes(q)
+  const addElement = useCallback((element: Element, x: number, y: number) => {
+    const wEl: WorkspaceElement = {
+      id: `w-${nextId.current++}`,
+      element,
+      x,
+      y,
+    }
+    setWorkspaceElements((prev) => [...prev, wEl])
+  }, [])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent, wElId: string) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const el = workspaceElements.find((w) => w.id === wElId)
+    if (!el) return
+    setDragging(wElId)
+    setDragOffset({ x: e.clientX - el.x, y: e.clientY - el.y })
+  }, [workspaceElements])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragging) return
+    setWorkspaceElements((prev) =>
+      prev.map((w) =>
+        w.id === dragging
+          ? { ...w, x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y }
+          : w
+      )
     )
-  }, [discovered, search])
+  }, [dragging, dragOffset])
 
-  function handleSelect(el: Element) {
-    if (!slot1) {
-      setSlot1(el)
-    } else if (!slot2) {
-      setSlot2(el)
-    } else {
-      setSlot1(el)
-      setSlot2(null)
-      setResult(null)
+  const handleMouseUp = useCallback(() => {
+    if (!dragging || !workspaceRef.current) {
+      setDragging(null)
+      return
     }
-  }
 
-  function handleCombine() {
-    if (!slot1 || !slot2) return
-
-    const newElement = findRecipe(slot1.id, slot2.id)
-
-    if (newElement) {
-      setResult(newElement)
-      setDiscovered((prev) => {
-        if (prev.some((el) => el.id === newElement.id)) return prev
-        return [...prev, newElement]
-      })
-    } else {
-      setResult({ id: 'nothing', name: 'Nothing', emoji: '💨' })
+    const dragged = workspaceElements.find((w) => w.id === dragging)
+    if (!dragged) {
+      setDragging(null)
+      return
     }
-  }
 
-  function handleClear() {
-    setSlot1(null)
-    setSlot2(null)
-    setResult(null)
-  }
+    const draggedCenter = { x: dragged.x + 50, y: dragged.y + 20 }
+
+    let closest: WorkspaceElement | null = null
+    let closestDist = Infinity
+
+    for (const other of workspaceElements) {
+      if (other.id === dragging) continue
+      const otherCenter = { x: other.x + 50, y: other.y + 20 }
+      const dist = Math.sqrt(
+        (draggedCenter.x - otherCenter.x) ** 2 +
+        (draggedCenter.y - otherCenter.y) ** 2
+      )
+      if (dist < 60 && dist < closestDist) {
+        closest = other
+        closestDist = dist
+      }
+    }
+
+    if (closest) {
+      const result = findRecipe(dragged.element.id, closest.element.id)
+      if (result) {
+        const midX = (dragged.x + closest.x) / 2
+        const midY = (dragged.y + closest.y) / 2
+
+        setWorkspaceElements((prev) =>
+          prev.filter((w) => w.id !== dragging && w.id !== closest!.id)
+        )
+
+        addElement(result, midX, midY)
+
+        setDiscovered((prev) => {
+          if (prev.some((el) => el.id === result.id)) return prev
+          return [...prev, result]
+        })
+      }
+    } else {
+      const rect = workspaceRef.current.getBoundingClientRect()
+      const margin = 200
+      if (
+        dragged.y < -margin ||
+        dragged.y > rect.height + margin ||
+        dragged.x < -margin - (sidebarOpen ? 200 : 0) ||
+        dragged.x > rect.width + margin
+      ) {
+        setWorkspaceElements((prev) => prev.filter((w) => w.id !== dragging))
+      }
+    }
+
+    setDragging(null)
+  }, [dragging, workspaceElements, addElement, sidebarOpen])
+
+  useEffect(() => {
+    function handleGlobalMouseUp() {
+      if (dragging) handleMouseUp()
+    }
+    window.addEventListener('mouseup', handleGlobalMouseUp)
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
+  }, [dragging, handleMouseUp])
+
+  const handleSidebarClick = useCallback((el: Element) => {
+    if (!workspaceRef.current) return
+    const rect = workspaceRef.current.getBoundingClientRect()
+    const x = rect.width / 2 - 50 + (Math.random() - 0.5) * 100
+    const y = rect.height / 2 - 20 + (Math.random() - 0.5) * 60
+    addElement(el, x, y)
+  }, [addElement])
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent, wElId: string) => {
+    e.stopPropagation()
+    const el = workspaceElements.find((w) => w.id === wElId)
+    if (!el) return
+    addElement({ ...el.element }, el.x + 20, el.y + 20)
+  }, [workspaceElements, addElement])
 
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2>Elements</h2>
-          <span className="count">{discovered.length}</span>
-        </div>
-        <input
-          type="text"
-          placeholder="Search..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="search"
-        />
-        <div className="element-list">
-          {filtered.map((el) => (
-            <button
-              key={el.id}
-              className={`element-chip ${slot1?.id === el.id || slot2?.id === el.id ? 'selected' : ''}`}
-              onClick={() => handleSelect(el)}
-            >
-              <span className="emoji">{el.emoji}</span>
-              <span className="name">{el.name}</span>
-            </button>
-          ))}
-        </div>
-      </aside>
-
-      <main className="workspace">
+      <header className="header">
         <h1>Infinite Craft</h1>
-
-        <div className="crafting-area">
-          <div className="slots">
-            <div className={`slot ${slot1 ? 'filled' : ''}`} onClick={() => { setSlot1(null); setResult(null) }}>
-              {slot1 ? (
-                <>
-                  <span className="emoji">{slot1.emoji}</span>
-                  <span className="name">{slot1.name}</span>
-                </>
-              ) : (
-                <span className="placeholder">Select element</span>
-              )}
-            </div>
-
-            <span className="plus">+</span>
-
-            <div className={`slot ${slot2 ? 'filled' : ''}`} onClick={() => { setSlot2(null); setResult(null) }}>
-              {slot2 ? (
-                <>
-                  <span className="emoji">{slot2.emoji}</span>
-                  <span className="name">{slot2.name}</span>
-                </>
-              ) : (
-                <span className="placeholder">Select element</span>
-              )}
-            </div>
-          </div>
-
-          <div className="actions">
-            <button
-              className="combine-btn"
-              disabled={!slot1 || !slot2}
-              onClick={handleCombine}
-            >
-              Combine
-            </button>
-            <button className="clear-btn" onClick={handleClear}>
-              Clear
-            </button>
-          </div>
-
-          {result && (
-            <div className={`result ${result.id === 'nothing' ? 'fail' : 'success'}`}>
-              <span className="emoji">{result.emoji}</span>
-              <span className="name">{result.name}</span>
-              {result.id !== 'nothing' && (
-                <span className="new-badge">New!</span>
-              )}
-            </div>
-          )}
+        <div className="header-right">
+          <span className="discovery-count">{discovered.length} / ???</span>
+          <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            {sidebarOpen ? '✕' : '☰'}
+          </button>
         </div>
-      </main>
+      </header>
+
+      {sidebarOpen && (
+        <div className="sidebar">
+          <div className="sidebar-content">
+            {discovered.map((el) => (
+              <div
+                key={el.id}
+                className="sidebar-element"
+                onClick={() => handleSidebarClick(el)}
+              >
+                <span className="emoji">{el.emoji}</span>
+                <span className="name">{el.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div
+        className="workspace"
+        ref={workspaceRef}
+        onMouseMove={handleMouseMove}
+        style={{ marginRight: sidebarOpen ? 200 : 0 }}
+      >
+        {workspaceElements.map((wEl) => (
+          <div
+            key={wEl.id}
+            className={`workspace-element ${dragging === wEl.id ? 'dragging' : ''}`}
+            style={{ left: wEl.x, top: wEl.y, zIndex: dragging === wEl.id ? 100 : 1 }}
+            onMouseDown={(e) => handleMouseDown(e, wEl.id)}
+            onDoubleClick={(e) => handleDoubleClick(e, wEl.id)}
+          >
+            <span className="emoji">{wEl.element.emoji}</span>
+            <span className="name">{wEl.element.name}</span>
+          </div>
+        ))}
+
+        {workspaceElements.length === 0 && (
+          <div className="workspace-hint">
+            Click an element to start crafting
+          </div>
+        )}
+      </div>
+
+      {workspaceElements.length > 0 && (
+        <button className="clear-all" onClick={() => setWorkspaceElements([])}>
+          Clear all
+        </button>
+      )}
     </div>
   )
 }
