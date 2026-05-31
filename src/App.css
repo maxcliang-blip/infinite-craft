@@ -191,6 +191,21 @@ body {
   color: #333;
 }
 
+.workspace-element.combining {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@keyframes combine-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.workspace-element.new {
+  animation: combine-pop 0.3s ease-out;
+}
+
 .clear-all {
   position: fixed;
   bottom: 20px;

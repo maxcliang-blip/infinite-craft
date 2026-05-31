@@ -3,11 +3,19 @@ import type { Element } from './types'
 import { baseElements, findRecipe } from './recipes'
 import './App.css'
 
+const API_URL = import.meta.env.VITE_API_URL || ''
+
 interface WorkspaceElement {
   id: string
   element: Element
   x: number
   y: number
+}
+
+interface AiResult {
+  name: string
+  emoji: string
+  id: string
 }
 
 function App() {
@@ -16,6 +24,7 @@ function App() {
   const [dragging, setDragging] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [combining, setCombining] = useState<string | null>(null)
   const workspaceRef = useRef<HTMLDivElement>(null)
   const nextId = useRef(0)
 
@@ -27,6 +36,21 @@ function App() {
       y,
     }
     setWorkspaceElements((prev) => [...prev, wEl])
+  }, [])
+
+  const callAiCombine = useCallback(async (first: Element, second: Element): Promise<AiResult | null> => {
+    try {
+      const resp = await fetch(`${API_URL}/api/combine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first: first.name, second: second.name }),
+      })
+
+      if (!resp.ok) return null
+      return await resp.json()
+    } catch {
+      return null
+    }
   }, [])
 
   const handleMouseDown = useCallback((e: React.MouseEvent, wElId: string) => {
@@ -49,30 +73,7 @@ function App() {
     )
   }, [dragging, dragOffset])
 
-  const combineElements = useCallback((draggedId: string, targetId: string) => {
-    const dragged = workspaceElements.find((w) => w.id === draggedId)
-    const target = workspaceElements.find((w) => w.id === targetId)
-    if (!dragged || !target) return
-
-    const result = findRecipe(dragged.element.id, target.element.id)
-    if (result) {
-      const midX = (dragged.x + target.x) / 2
-      const midY = (dragged.y + target.y) / 2
-
-      setWorkspaceElements((prev) =>
-        prev.filter((w) => w.id !== draggedId && w.id !== targetId)
-      )
-
-      addElement(result, midX, midY)
-
-      setDiscovered((prev) => {
-        if (prev.some((el) => el.id === result.id)) return prev
-        return [...prev, result]
-      })
-    }
-  }, [workspaceElements, addElement])
-
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback(async () => {
     if (!dragging || !workspaceRef.current) {
       setDragging(null)
       return
@@ -103,7 +104,37 @@ function App() {
     }
 
     if (closest) {
-      combineElements(dragging, closest.id)
+      setCombining(dragging)
+
+      let result: AiResult | null = null
+      const aiResult = await callAiCombine(dragged.element, closest.element)
+
+      if (aiResult) {
+        result = aiResult
+      } else {
+        const staticResult = findRecipe(dragged.element.id, closest.element.id)
+        if (staticResult) {
+          result = { name: staticResult.name, emoji: staticResult.emoji, id: staticResult.id }
+        }
+      }
+
+      if (result) {
+        const midX = (dragged.x + closest.x) / 2
+        const midY = (dragged.y + closest.y) / 2
+
+        setWorkspaceElements((prev) =>
+          prev.filter((w) => w.id !== dragging && w.id !== closest!.id)
+        )
+
+        addElement({ name: result.name, emoji: result.emoji, id: result.id }, midX, midY)
+
+        setDiscovered((prev) => {
+          if (prev.some((el) => el.id === result!.id)) return prev
+          return [...prev, { name: result!.name, emoji: result!.emoji, id: result!.id }]
+        })
+      }
+
+      setCombining(null)
     } else {
       const rect = workspaceRef.current.getBoundingClientRect()
       const margin = 200
@@ -118,7 +149,7 @@ function App() {
     }
 
     setDragging(null)
-  }, [dragging, workspaceElements, combineElements, sidebarOpen])
+  }, [dragging, workspaceElements, callAiCombine, addElement, sidebarOpen])
 
   useEffect(() => {
     function handleGlobalMouseUp() {
@@ -204,7 +235,7 @@ function App() {
         {workspaceElements.map((wEl) => (
           <div
             key={wEl.id}
-            className={`workspace-element ${dragging === wEl.id ? 'dragging' : ''}`}
+            className={`workspace-element ${dragging === wEl.id ? 'dragging' : ''} ${combining === wEl.id ? 'combining' : ''}`}
             style={{ left: wEl.x, top: wEl.y, zIndex: dragging === wEl.id ? 100 : 1 }}
             onMouseDown={(e) => handleMouseDown(e, wEl.id)}
             onDoubleClick={(e) => handleDoubleClick(e, wEl.id)}
