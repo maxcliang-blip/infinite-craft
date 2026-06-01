@@ -1,7 +1,9 @@
-from typing import Optional
 import json
 import os
 import re
+import sqlite3
+import threading
+from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +23,28 @@ app.add_middleware(
 
 API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
+DB_PATH = os.path.join(os.path.dirname(__file__), "recipes.db")
 
-AI_CACHE: dict[str, dict] = {}
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ai_recipes (
+            cache_key TEXT PRIMARY KEY,
+            first TEXT NOT NULL,
+            second TEXT NOT NULL,
+            name TEXT NOT NULL,
+            emoji TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
 
 EMOJI_MAP = {
     "water": "💧", "fire": "🔥", "earth": "🌍", "wind": "💨",
@@ -117,6 +139,23 @@ Rules:
 - Keep names short (1-3 words max)
 - Example output: {"name": "Steam", "emoji": "♨️"}"""
 
+def get_cached(cache_key: str) -> Optional[dict]:
+    conn = get_db()
+    row = conn.execute("SELECT name, emoji FROM ai_recipes WHERE cache_key = ?", (cache_key,)).fetchone()
+    conn.close()
+    if row:
+        return make_response(row["name"], row["emoji"])
+    return None
+
+def save_recipe(cache_key: str, first: str, second: str, name: str, emoji: str):
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO ai_recipes (cache_key, first, second, name, emoji) VALUES (?, ?, ?, ?, ?)",
+        (cache_key, first, second, name, emoji)
+    )
+    conn.commit()
+    conn.close()
+
 @app.post("/api/combine")
 async def combine(req: CombineRequest):
     if not API_KEY or API_KEY == "sk-or-v1-":
@@ -124,16 +163,16 @@ async def combine(req: CombineRequest):
 
     cache_key = make_cache_key(req.first, req.second)
 
-    # 1. Check static recipes (instant)
     if cache_key in STATIC_RECIPES:
         r = STATIC_RECIPES[cache_key]
         return make_response(r["name"], r["emoji"])
 
-    # 2. Check AI cache (instant for previously discovered combos)
-    if cache_key in AI_CACHE:
-        return AI_CACHE[cache_key]
+    # Check persistent cache
+    cached = get_cached(cache_key)
+    if cached:
+        return cached
 
-    # 3. Call AI (slow, but cached for next time)
+    # Call AI
     for attempt in range(2):
         try:
             async with AsyncClient() as client:
@@ -182,9 +221,10 @@ async def combine(req: CombineRequest):
             if not emoji or not isinstance(emoji, str) or len(emoji) > 4:
                 emoji = get_emoji(name)
 
-            response = make_response(name, emoji)
-            AI_CACHE[cache_key] = response
-            return response
+            # Save to database
+            save_recipe(cache_key, req.first, req.second, name, emoji)
+
+            return make_response(name, emoji)
 
         except (json.JSONDecodeError, KeyError):
             if attempt < 1:
@@ -197,7 +237,17 @@ async def combine(req: CombineRequest):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "cached": len(AI_CACHE)}
+    conn = get_db()
+    count = conn.execute("SELECT COUNT(*) FROM ai_recipes").fetchone()[0]
+    conn.close()
+    return {"status": "ok", "db_recipes": count, "static_recipes": len(STATIC_RECIPES)}
+
+@app.get("/api/recipes")
+async def list_recipes():
+    conn = get_db()
+    rows = conn.execute("SELECT first, second, name, emoji FROM ai_recipes ORDER BY name").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 if __name__ == "__main__":
     import uvicorn
