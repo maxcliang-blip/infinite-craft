@@ -3,7 +3,7 @@ import type { Element } from './types'
 import { baseElements, findRecipe } from './recipes'
 import './App.css'
 
-const API_URL = import.meta.env.VITE_API_URL || ''
+const API_URL = import.meta.env.VITE_API_URL || 'http://129.80.7.65'
 
 interface WorkspaceElement {
   id: string

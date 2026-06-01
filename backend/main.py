@@ -19,7 +19,7 @@ app.add_middleware(
 )
 
 API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-MODEL = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.1-8b-instruct:free")
+MODEL = os.getenv("OPENROUTER_MODEL", "google/gemma-4-26b-a4b-it:free")
 
 EMOJI_MAP = {
     "water": "💧", "fire": "🔥", "earth": "🌍", "wind": "💨",
@@ -49,11 +49,11 @@ SYSTEM_PROMPT = """You are an element combination engine for a crafting game. Gi
 
 Rules:
 - Be creative but logical
-- Return a JSON object with exactly these fields: "name" (string) and "emoji" (single emoji)
+- Return ONLY a JSON object with exactly these fields: "name" (string) and "emoji" (single emoji)
+- Do not include any text before or after the JSON
 - The emoji should be relevant to the result
 - Keep names short (1-3 words max)
-- If combining something trivial or the same element with itself meaninglessly, you can still create something interesting
-- Examples: Water + Fire = Steam, Earth + Fire = Lava, Plant + Plant = Garden, Human + Human = Family"""
+- Example output: {"name": "Steam", "emoji": "♨️"}"""
 
 @app.post("/api/combine")
 async def combine(req: CombineRequest):
@@ -74,9 +74,8 @@ async def combine(req: CombineRequest):
                     "model": MODEL,
                     "messages": [
                         {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": f"Combine: {req.first} + {req.second}"},
+                        {"role": "user", "content": f"Combine: {req.first} + {req.second}. Return only JSON."},
                     ],
-                    "response_format": {"type": "json_object"},
                     "temperature": 0.7,
                     "max_tokens": 100,
                 },
@@ -84,8 +83,17 @@ async def combine(req: CombineRequest):
             )
 
         data = resp.json()
+
+        if "error" in data:
+            raise Exception(f"OpenRouter error: {data['error']}")
+
         content = data["choices"][0]["message"]["content"]
-        result = json.loads(content)
+
+        json_match = re.search(r'\{[^{}]*\}', content, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            result = json.loads(content)
 
         name = result.get("name", "Unknown")
         emoji = result.get("emoji", "🔹")
@@ -95,6 +103,8 @@ async def combine(req: CombineRequest):
 
         return {"name": name, "emoji": emoji, "id": normalize(name)}
 
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
