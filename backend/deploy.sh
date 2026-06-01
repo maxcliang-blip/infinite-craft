@@ -8,7 +8,7 @@ REMOTE_PATH="/opt/infinite-craft"
 echo "=== Deploying backend to $VPS_HOST ==="
 
 echo "Transferring files..."
-rsync -avz --exclude='.venv' --exclude='__pycache__' --exclude='.env' ./ "$VPS_USER@$VPS_HOST:$REMOTE_PATH/backend/"
+rsync -avz --exclude='.venv' --exclude='__pycache__' --exclude='.env' --exclude='recipes.db' ./ "$VPS_USER@$VPS_HOST:$REMOTE_PATH/backend/"
 
 echo "Restarting service..."
 ssh "$VPS_USER@$VPS_HOST" "systemctl restart infinite-craft"
