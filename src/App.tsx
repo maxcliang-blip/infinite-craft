@@ -25,6 +25,7 @@ function App() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [combining, setCombining] = useState<string | null>(null)
+  const [showChangelog, setShowChangelog] = useState(false)
   const workspaceRef = useRef<HTMLDivElement>(null)
   const nextId = useRef(0)
 
@@ -199,6 +200,9 @@ function App() {
         <h1>Infinite Craft</h1>
         <div className="header-right">
           <span className="discovery-count">{discovered.length} / ???</span>
+          <button className="header-btn" onClick={() => setShowChangelog(true)}>
+            Changelog
+          </button>
           <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? '✕' : '☰'}
           </button>
@@ -256,6 +260,57 @@ function App() {
         <button className="clear-all" onClick={() => setWorkspaceElements([])}>
           Clear all
         </button>
+      )}
+
+      {showChangelog && (
+        <div className="overlay" onClick={() => setShowChangelog(false)}>
+          <div className="changelog" onClick={(e) => e.stopPropagation()}>
+            <div className="changelog-header">
+              <h2>Changelog</h2>
+              <button className="close-btn" onClick={() => setShowChangelog(false)}>✕</button>
+            </div>
+            <div className="changelog-body">
+              <div className="changelog-version">
+                <span className="version-tag">v1.0.0</span>
+                <span className="version-date">2026-06-01</span>
+              </div>
+              <div className="changelog-section">
+                <h3>Frontend</h3>
+                <ul>
+                  <li>React + TypeScript app with Vite</li>
+                  <li>Drag-and-drop elements from sidebar to workspace</li>
+                  <li>Drag elements on canvas to combine them</li>
+                  <li>Double-click to duplicate elements</li>
+                  <li>Collapsible sidebar</li>
+                </ul>
+              </div>
+              <div className="changelog-section">
+                <h3>Backend</h3>
+                <ul>
+                  <li>FastAPI + OpenRouter AI for dynamic element generation</li>
+                  <li>SQLite database for persistent recipe caching</li>
+                  <li>47 static recipes for instant responses</li>
+                  <li>AI results cached — subsequent combos are instant</li>
+                </ul>
+              </div>
+              <div className="changelog-section">
+                <h3>Deployment</h3>
+                <ul>
+                  <li>Frontend on GitHub Pages</li>
+                  <li>Backend on Oracle Cloud VPS with nginx</li>
+                </ul>
+              </div>
+              <div className="changelog-section">
+                <h3>Game</h3>
+                <ul>
+                  <li>4 base elements: Water, Fire, Earth, Wind</li>
+                  <li>Infinite AI-powered combinations</li>
+                  <li>Element discovery tracking</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
