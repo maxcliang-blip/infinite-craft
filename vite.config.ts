@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  envPrefix: 'VITE_',
   base: process.env.VITE_BASE_PATH || '/',
   server: {
     proxy: {
@@ -11,8 +12,5 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-  },
-  build: {
-    envPrefix: 'VITE_',
   },
 })
