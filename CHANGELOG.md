@@ -2,6 +2,15 @@
 
 All notable changes to Infinite Craft will be documented in this file.
 
+## [1.1.1] - 2026-06-02
+
+### AI Improvements
+- Enhanced system prompt for more creative and logical item combinations
+- AI now considers real-world reactions, abstract connections, and cause-and-effect
+- Better progression: simple combos → complex items, complex combos → surprising results
+- Increased temperature (0.5 → 0.7) for more variety in results
+- Increased max tokens (50 → 80) for richer responses
+
 ## [1.1.0] - 2026-06-02
 
 ### Added

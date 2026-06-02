@@ -129,15 +129,29 @@ class CombineRequest(BaseModel):
     first: str
     second: str
 
-SYSTEM_PROMPT = """You are an element combination engine for a crafting game. Given two elements, return what they would create when combined.
+SYSTEM_PROMPT = """You are a creative item-discovery engine for a crafting game. Given two elements, invent a NEW, INTERESTING item that their combination produces.
 
-Rules:
-- Be creative but logical
-- Return ONLY a JSON object with exactly these fields: "name" (string) and "emoji" (single emoji)
-- Do not include any text before or after the JSON
-- The emoji should be relevant to the result
-- Keep names short (1-3 words max)
-- Example output: {"name": "Steam", "emoji": "♨️"}"""
+CORE RULES:
+1. NEVER return one of the input elements
+2. ALWAYS return something different and exciting
+3. Names must be 1-3 words, Title Case
+4. Return ONLY valid JSON: {"name": "ResultName", "emoji": "🔹"}
+
+THINK ABOUT:
+- Real-world reactions (Fire + Water = Steam, Earth + Fire = Lava)
+- Abstract connections (Fire + Music = Jazz, Time + Stone = Fossil)
+- Cause and effect (Rain + Fire = Steam, Wind + Sand = Dune)
+- Technology and inventions (Metal + Electricity = Wire)
+- Nature and life (Plant + Water = Algae, Earth + Life = Human)
+- Materials and compounds (Sand + Fire = Glass, Mud + Fire = Brick)
+
+PREFERENCES:
+- Specific items over generic ones (Volcano not Hot Mountain)
+- Interesting discoveries over obvious results
+- Items that lead to more combinations (progressive gameplay)
+- Mix literal and abstract thinking
+
+Output ONLY the JSON. No explanations, no markdown."""
 
 def get_cached(cache_key: str) -> Optional[dict]:
     conn = get_db()
@@ -190,8 +204,8 @@ async def combine(req: CombineRequest):
                             {"role": "system", "content": SYSTEM_PROMPT},
                             {"role": "user", "content": f"Combine: {req.first} + {req.second}. Return only JSON like {{\"name\": \"Something\", \"emoji\": \"🔹\"}}"},
                         ],
-                        "temperature": 0.5,
-                        "max_tokens": 50,
+                        "temperature": 0.7,
+                        "max_tokens": 80,
                     },
                     timeout=15.0,
                 )

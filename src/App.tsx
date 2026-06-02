@@ -305,37 +305,22 @@ function App() {
             </div>
             <div className="changelog-body">
               <div className="changelog-version">
-                <span className="version-tag">v1.1.0</span>
+                <span className="version-tag">v1.1.1</span>
                 <span className="version-date">2026-06-02</span>
               </div>
               <div className="changelog-section">
-                <h3>Added</h3>
+                <h3>AI Improvements</h3>
                 <ul>
-                  <li>Sidebar search bar to filter discovered elements</li>
-                  <li>Local storage persistence for discovered elements</li>
-                  <li>Changelog modal accessible from header</li>
-                </ul>
-              </div>
-              <div className="changelog-section">
-                <h3>Fixed</h3>
-                <ul>
-                  <li>API calls working on all computers via Cloudflare tunnel</li>
-                  <li>Frontend deployed on VPS to avoid mixed-content issues</li>
-                  <li>Build configuration for GitHub Pages deployment</li>
-                </ul>
-              </div>
-              <div className="changelog-section">
-                <h3>Infrastructure</h3>
-                <ul>
-                  <li>Cloudflare tunnel for HTTPS access to backend</li>
-                  <li>Automated GitHub Pages deployment workflow</li>
-                  <li>Frontend served from same VPS via nginx proxy</li>
+                  <li>Enhanced system prompt for more creative item combinations</li>
+                  <li>AI considers real-world reactions, abstract connections, cause-and-effect</li>
+                  <li>Better progression: simple → complex items</li>
+                  <li>Increased temperature for more variety</li>
                 </ul>
               </div>
 
               <div className="changelog-version changelog-version-prev">
-                <span className="version-tag">v1.0.0</span>
-                <span className="version-date">2026-06-01</span>
+                <span className="version-tag">v1.1.0</span>
+                <span className="version-date">2026-06-02</span>
               </div>
               <div className="changelog-section">
                 <h3>Frontend</h3>
