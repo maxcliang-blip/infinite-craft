@@ -86,6 +86,36 @@ body {
   flex-direction: column;
 }
 
+.sidebar-search {
+  padding: 8px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input:focus {
+  border-color: #999;
+}
+
+.search-input::placeholder {
+  color: #aaa;
+}
+
+.no-results {
+  text-align: center;
+  padding: 20px;
+  font-size: 12px;
+  color: #999;
+}
+
 .sidebar-content {
   flex: 1;
   overflow-y: auto;

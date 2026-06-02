@@ -3,7 +3,9 @@ import type { Element } from './types'
 import { baseElements, findRecipe } from './recipes'
 import './App.css'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://129.80.7.65'
+const API_URL = import.meta.env.VITE_API_URL || ''
+
+const DISCOVERED_KEY = 'infinite-craft-discovered'
 
 interface WorkspaceElement {
   id: string
@@ -19,7 +21,17 @@ interface AiResult {
 }
 
 function App() {
-  const [discovered, setDiscovered] = useState<Element[]>(baseElements)
+  const [discovered, setDiscovered] = useState<Element[]>(() => {
+    try {
+      const saved = localStorage.getItem(DISCOVERED_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved) as Element[]
+        if (parsed.length > 0) return parsed
+      }
+    } catch {}
+    return baseElements
+  })
+  const [searchQuery, setSearchQuery] = useState('')
   const [workspaceElements, setWorkspaceElements] = useState<WorkspaceElement[]>([])
   const [dragging, setDragging] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
@@ -153,6 +165,10 @@ function App() {
   }, [dragging, workspaceElements, callAiCombine, addElement, sidebarOpen])
 
   useEffect(() => {
+    localStorage.setItem(DISCOVERED_KEY, JSON.stringify(discovered))
+  }, [discovered])
+
+  useEffect(() => {
     function handleGlobalMouseUp() {
       if (dragging) handleMouseUp()
     }
@@ -211,19 +227,37 @@ function App() {
 
       {sidebarOpen && (
         <div className="sidebar">
+          <div className="sidebar-search">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search elements..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
           <div className="sidebar-content">
-            {discovered.map((el) => (
-              <div
-                key={el.id}
-                className="sidebar-element"
-                draggable
-                onDragStart={(e) => handleSidebarDragStart(e, el)}
-                onDragEnd={handleSidebarDragEnd}
-              >
-                <span className="emoji">{el.emoji}</span>
-                <span className="name">{el.name}</span>
-              </div>
-            ))}
+            {discovered
+              .filter((el) =>
+                el.name.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+              .map((el) => (
+                <div
+                  key={el.id}
+                  className="sidebar-element"
+                  draggable
+                  onDragStart={(e) => handleSidebarDragStart(e, el)}
+                  onDragEnd={handleSidebarDragEnd}
+                >
+                  <span className="emoji">{el.emoji}</span>
+                  <span className="name">{el.name}</span>
+                </div>
+              ))}
+            {searchQuery && discovered.filter((el) =>
+              el.name.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length === 0 && (
+              <div className="no-results">No elements found</div>
+            )}
           </div>
         </div>
       )}
