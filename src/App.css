@@ -401,3 +401,9 @@ body {
   color: #7c3aed;
   font-weight: 700;
 }
+
+.changelog-version-prev {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e5e5;
+}

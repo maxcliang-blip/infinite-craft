@@ -2,6 +2,23 @@
 
 All notable changes to Infinite Craft will be documented in this file.
 
+## [1.1.0] - 2026-06-02
+
+### Added
+- Sidebar search bar to filter discovered elements
+- Local storage persistence — discovered elements saved across browser sessions
+- Changelog modal accessible from header button
+
+### Fixed
+- API calls working on all computers via Cloudflare tunnel (HTTPS)
+- Frontend now deployed directly on VPS alongside backend to avoid mixed-content issues
+- Build configuration for GitHub Pages deployment
+
+### Infrastructure
+- Cloudflare tunnel for HTTPS access to backend (no domain required)
+- Automated GitHub Pages deployment workflow
+- Frontend served from same VPS as backend via nginx proxy
+
 ## [1.0.0] - 2026-06-01
 
 ### Initial Release
