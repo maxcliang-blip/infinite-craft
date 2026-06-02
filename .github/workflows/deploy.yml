@@ -3,7 +3,6 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,9 +21,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
       - run: npm ci
-      - run: npm run build
+      - run: VITE_BASE_PATH=/infinite-craft/ VITE_API_URL='https://129.80.7.65' npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
