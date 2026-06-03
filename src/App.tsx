@@ -305,22 +305,22 @@ function App() {
             </div>
             <div className="changelog-body">
               <div className="changelog-version">
-                <span className="version-tag">v1.2.0</span>
+                <span className="version-tag">v1.2.1</span>
                 <span className="version-date">2026-06-03</span>
               </div>
               <div className="changelog-section">
-                <h3>Ollama Integration</h3>
+                <h3>Emoji Fixes</h3>
                 <ul>
-                  <li>Local AI inference — no more rate limits</li>
-                  <li>Running qwen2.5:7b model on VPS</li>
-                  <li>Always available, consistent responses</li>
-                  <li>No external API key required</li>
+                  <li>Expanded emoji map to 400+ items</li>
+                  <li>EMOJI_MAP now always overrides AI-provided emojis</li>
+                  <li>Person emojis rejected for non-human items</li>
+                  <li>Correct fallback emojis instead of generic 🔹</li>
                 </ul>
               </div>
 
               <div className="changelog-version changelog-version-prev">
-                <span className="version-tag">v1.1.1</span>
-                <span className="version-date">2026-06-02</span>
+                <span className="version-tag">v1.2.0</span>
+                <span className="version-date">2026-06-03</span>
               </div>
               <div className="changelog-section">
                 <h3>Frontend</h3>

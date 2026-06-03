@@ -2,6 +2,14 @@
 
 All notable changes to Infinite Craft will be documented in this file.
 
+## [1.2.1] - 2026-06-03
+
+### Emoji Fixes
+- Expanded emoji map to 400+ items with correct emoji assignments
+- EMOJI_MAP entries now always override AI-provided emojis
+- Added validation to reject person emojis for non-human items
+- Fallback emojis now use the curated map instead of 🔹
+
 ## [1.2.0] - 2026-06-03
 
 ### Ollama Integration
