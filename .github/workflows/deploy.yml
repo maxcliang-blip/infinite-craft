@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: VITE_BASE_PATH=/infinite-craft/ VITE_API_URL=https://handles-barrel-lyrics-short.trycloudflare.com npm run build
+      - run: VITE_BASE_PATH=/infinite-craft/ VITE_API_URL=https://treated-mass-quantum-ultimately.trycloudflare.com npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
