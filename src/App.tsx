@@ -34,12 +34,14 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [workspaceElements, setWorkspaceElements] = useState<WorkspaceElement[]>([])
   const [dragging, setDragging] = useState<string | null>(null)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [combining, setCombining] = useState<string | null>(null)
   const [showChangelog, setShowChangelog] = useState(false)
   const workspaceRef = useRef<HTMLDivElement>(null)
   const nextId = useRef(0)
+  const draggingRef = useRef<string | null>(null)
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
+  const dragElRef = useRef<HTMLElement | null>(null)
 
   const addElement = useCallback((element: Element, x: number, y: number) => {
     const wEl: WorkspaceElement = {
@@ -68,113 +70,136 @@ function App() {
 
   const handleMouseDown = useCallback((e: React.MouseEvent, wElId: string) => {
     e.stopPropagation()
-    e.preventDefault()
     const el = workspaceElements.find((w) => w.id === wElId)
     if (!el) return
+
+    const offsetX = e.clientX - el.x
+    const offsetY = e.clientY - el.y
+
+    draggingRef.current = wElId
+    dragOffsetRef.current = { x: offsetX, y: offsetY }
     setDragging(wElId)
-    setDragOffset({ x: e.clientX - el.x, y: e.clientY - el.y })
+
+    const domEl = document.querySelector(`.workspace-element[data-id="${wElId}"]`) as HTMLElement
+    if (domEl) {
+      dragElRef.current = domEl
+      domEl.style.transition = 'none'
+      domEl.style.willChange = 'transform'
+      domEl.style.zIndex = '100'
+    }
   }, [workspaceElements])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragging) return
-    setWorkspaceElements((prev) =>
-      prev.map((w) =>
-        w.id === dragging
-          ? { ...w, x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y }
-          : w
-      )
-    )
-  }, [dragging, dragOffset])
+  useEffect(() => {
+    let mouseX = 0
+    let mouseY = 0
 
-  const handleMouseUp = useCallback(async () => {
-    if (!dragging || !workspaceRef.current) {
-      setDragging(null)
-      return
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseX = e.clientX
+      mouseY = e.clientY
+      if (!draggingRef.current || !dragElRef.current) return
+      const orig = workspaceElements.find(w => w.id === draggingRef.current)
+      if (!orig) return
+      const dx = e.clientX - dragOffsetRef.current.x - orig.x
+      const dy = e.clientY - dragOffsetRef.current.y - orig.y
+      dragElRef.current.style.transform = `translate(${dx}px, ${dy}px)`
     }
 
-    const dragged = workspaceElements.find((w) => w.id === dragging)
-    if (!dragged) {
-      setDragging(null)
-      return
-    }
-
-    const draggedCenter = { x: dragged.x + 50, y: dragged.y + 20 }
-
-    let closest: WorkspaceElement | null = null
-    let closestDist = Infinity
-
-    for (const other of workspaceElements) {
-      if (other.id === dragging) continue
-      const otherCenter = { x: other.x + 50, y: other.y + 20 }
-      const dist = Math.sqrt(
-        (draggedCenter.x - otherCenter.x) ** 2 +
-        (draggedCenter.y - otherCenter.y) ** 2
-      )
-      if (dist < 60 && dist < closestDist) {
-        closest = other
-        closestDist = dist
+    const handleMouseUp = async () => {
+      const wElId = draggingRef.current
+      if (!wElId) {
+        draggingRef.current = null
+        dragElRef.current = null
+        setDragging(null)
+        return
       }
-    }
 
-    if (closest) {
-      setCombining(dragging)
+      const dragged = workspaceElements.find((w) => w.id === wElId)
+      if (!dragged) {
+        draggingRef.current = null
+        dragElRef.current = null
+        setDragging(null)
+        return
+      }
 
-      let result: AiResult | null = null
-      const aiResult = await callAiCombine(dragged.element, closest.element)
+      const finalX = mouseX - dragOffsetRef.current.x
+      const finalY = mouseY - dragOffsetRef.current.y
 
-      if (aiResult) {
-        result = aiResult
-      } else {
-        const staticResult = findRecipe(dragged.element.id, closest.element.id)
-        if (staticResult) {
-          result = { name: staticResult.name, emoji: staticResult.emoji, id: staticResult.id }
+      const draggedCenter = { x: finalX + 50, y: finalY + 20 }
+
+      let closest: WorkspaceElement | null = null
+      let closestDist = Infinity
+
+      for (const other of workspaceElements) {
+        if (other.id === wElId) continue
+        const otherCenter = { x: other.x + 50, y: other.y + 20 }
+        const dist = Math.sqrt(
+          (draggedCenter.x - otherCenter.x) ** 2 +
+          (draggedCenter.y - otherCenter.y) ** 2
+        )
+        if (dist < 60 && dist < closestDist) {
+          closest = other
+          closestDist = dist
         }
       }
 
-      if (result) {
-        const midX = (dragged.x + closest.x) / 2
-        const midY = (dragged.y + closest.y) / 2
+      if (closest) {
+        setCombining(wElId)
 
-        setWorkspaceElements((prev) =>
-          prev.filter((w) => w.id !== dragging && w.id !== closest!.id)
-        )
+        let result: AiResult | null = null
+        const aiResult = await callAiCombine(dragged.element, closest.element)
 
-        addElement({ name: result.name, emoji: result.emoji, id: result.id }, midX, midY)
+        if (aiResult) {
+          result = aiResult
+        } else {
+          const staticResult = findRecipe(dragged.element.id, closest.element.id)
+          if (staticResult) {
+            result = { name: staticResult.name, emoji: staticResult.emoji, id: staticResult.id }
+          }
+        }
 
-        setDiscovered((prev) => {
-          if (prev.some((el) => el.id === result!.id)) return prev
-          return [...prev, { name: result!.name, emoji: result!.emoji, id: result!.id }]
-        })
+        if (result) {
+          const midX = (dragged.x + closest.x) / 2
+          const midY = (dragged.y + closest.y) / 2
+
+          setWorkspaceElements((prev) =>
+            prev.filter((w) => w.id !== wElId && w.id !== closest!.id)
+          )
+
+          addElement({ name: result.name, emoji: result.emoji, id: result.id }, midX, midY)
+
+          setDiscovered((prev) => {
+            if (prev.some((el) => el.id === result!.id)) return prev
+            return [...prev, { name: result!.name, emoji: result!.emoji, id: result!.id }]
+          })
+        }
+
+        setCombining(null)
+      } else {
+        if (!workspaceRef.current) return
+        const rect = workspaceRef.current.getBoundingClientRect()
+        const margin = 200
+        if (
+          finalY < -margin ||
+          finalY > rect.height + margin ||
+          finalX < -margin - (sidebarOpen ? 200 : 0) ||
+          finalX > rect.width + margin
+        ) {
+          setWorkspaceElements((prev) => prev.filter((w) => w.id !== wElId))
+        }
       }
 
-      setCombining(null)
-    } else {
-      const rect = workspaceRef.current.getBoundingClientRect()
-      const margin = 200
-      if (
-        dragged.y < -margin ||
-        dragged.y > rect.height + margin ||
-        dragged.x < -margin - (sidebarOpen ? 200 : 0) ||
-        dragged.x > rect.width + margin
-      ) {
-        setWorkspaceElements((prev) => prev.filter((w) => w.id !== dragging))
-      }
+      draggingRef.current = null
+      dragElRef.current = null
+      setDragging(null)
     }
 
-    setDragging(null)
-  }, [dragging, workspaceElements, callAiCombine, addElement, sidebarOpen])
-
-  useEffect(() => {
-    localStorage.setItem(DISCOVERED_KEY, JSON.stringify(discovered))
-  }, [discovered])
-
-  useEffect(() => {
-    function handleGlobalMouseUp() {
-      if (dragging) handleMouseUp()
+    window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
     }
-    window.addEventListener('mouseup', handleGlobalMouseUp)
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
-  }, [dragging, handleMouseUp])
+  }, [workspaceElements, callAiCombine, addElement, sidebarOpen])
 
   const handleSidebarDragStart = useCallback((e: React.DragEvent, el: Element) => {
     e.dataTransfer.setData('application/json', JSON.stringify(el))
@@ -265,7 +290,6 @@ function App() {
       <div
         className="workspace"
         ref={workspaceRef}
-        onMouseMove={handleMouseMove}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         style={{ marginRight: sidebarOpen ? 200 : 0 }}
@@ -273,6 +297,7 @@ function App() {
         {workspaceElements.map((wEl) => (
           <div
             key={wEl.id}
+            data-id={wEl.id}
             className={`workspace-element ${dragging === wEl.id ? 'dragging' : ''} ${combining === wEl.id ? 'combining' : ''}`}
             style={{ left: wEl.x, top: wEl.y, zIndex: dragging === wEl.id ? 100 : 1 }}
             onMouseDown={(e) => handleMouseDown(e, wEl.id)}
@@ -305,21 +330,21 @@ function App() {
             </div>
             <div className="changelog-body">
               <div className="changelog-version">
-                <span className="version-tag">v1.2.2</span>
+                <span className="version-tag">v1.2.3</span>
                 <span className="version-date">2026-06-03</span>
               </div>
               <div className="changelog-section">
-                <h3>Performance</h3>
+                <h3>Dragging Improvements</h3>
                 <ul>
-                  <li>Switched to qwen2.5:1.5b model (5x smaller)</li>
-                  <li>New AI combos ~1.5s instead of ~7s</li>
-                  <li>Reduced max tokens for faster responses</li>
-                  <li>Cached combos remain instant (~0.04s)</li>
+                  <li>Direct DOM manipulation — no React re-renders during drag</li>
+                  <li>GPU-accelerated via CSS transform</li>
+                  <li>Window-level mouse tracking for consistent movement</li>
+                  <li>Smoother shadow and cursor transitions</li>
                 </ul>
               </div>
 
               <div className="changelog-version changelog-version-prev">
-                <span className="version-tag">v1.2.1</span>
+                <span className="version-tag">v1.2.2</span>
                 <span className="version-date">2026-06-03</span>
               </div>
               <div className="changelog-section">

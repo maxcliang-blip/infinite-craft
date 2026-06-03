@@ -2,6 +2,15 @@
 
 All notable changes to Infinite Craft will be documented in this file.
 
+## [1.2.3] - 2026-06-03
+
+### Dragging Improvements
+- Direct DOM manipulation for drag movement (no React re-renders during drag)
+- GPU-accelerated via `transform` instead of `left/top` updates
+- Mouse events on `window` instead of workspace for consistent tracking
+- Passive event listeners for smoother scroll performance
+- Added `will-change: transform` for browser optimization
+
 ## [1.2.2] - 2026-06-03
 
 ### Performance
