@@ -2,6 +2,14 @@
 
 All notable changes to Infinite Craft will be documented in this file.
 
+## [1.2.2] - 2026-06-03
+
+### Performance
+- Switched AI model from qwen2.5:7b to qwen2.5:1.5b (5x smaller)
+- New AI combos now ~1.5s instead of ~7s
+- Reduced max tokens (80 → 30) since we only need short JSON
+- Cached combos remain instant (~0.04s)
+
 ## [1.2.1] - 2026-06-03
 
 ### Emoji Fixes

@@ -305,21 +305,21 @@ function App() {
             </div>
             <div className="changelog-body">
               <div className="changelog-version">
-                <span className="version-tag">v1.2.1</span>
+                <span className="version-tag">v1.2.2</span>
                 <span className="version-date">2026-06-03</span>
               </div>
               <div className="changelog-section">
-                <h3>Emoji Fixes</h3>
+                <h3>Performance</h3>
                 <ul>
-                  <li>Expanded emoji map to 400+ items</li>
-                  <li>EMOJI_MAP now always overrides AI-provided emojis</li>
-                  <li>Person emojis rejected for non-human items</li>
-                  <li>Correct fallback emojis instead of generic 🔹</li>
+                  <li>Switched to qwen2.5:1.5b model (5x smaller)</li>
+                  <li>New AI combos ~1.5s instead of ~7s</li>
+                  <li>Reduced max tokens for faster responses</li>
+                  <li>Cached combos remain instant (~0.04s)</li>
                 </ul>
               </div>
 
               <div className="changelog-version changelog-version-prev">
-                <span className="version-tag">v1.2.0</span>
+                <span className="version-tag">v1.2.1</span>
                 <span className="version-date">2026-06-03</span>
               </div>
               <div className="changelog-section">

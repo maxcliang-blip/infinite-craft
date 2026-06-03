@@ -24,7 +24,7 @@ app.add_middleware(
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 if not OLLAMA_URL.startswith("http"):
     OLLAMA_URL = "http://" + OLLAMA_URL
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
 DB_PATH = os.path.join(os.path.dirname(__file__), "recipes.db")
 
 def get_db():
@@ -411,7 +411,7 @@ async def combine(req: CombineRequest):
                         ],
                         "options": {
                             "temperature": 0.7,
-                            "num_predict": 80,
+                            "num_predict": 30,
                         },
                         "stream": False,
                     },
