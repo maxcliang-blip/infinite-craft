@@ -2,6 +2,15 @@
 
 All notable changes to Infinite Craft will be documented in this file.
 
+## [1.2.0] - 2026-06-03
+
+### Ollama Integration
+- Replaced OpenRouter with local Ollama for AI inference
+- No more rate limits — always available
+- Running qwen2.5:7b model on VPS (CPU inference)
+- Faster, more consistent responses
+- Removed dependency on external API keys
+
 ## [1.1.1] - 2026-06-02
 
 ### AI Improvements

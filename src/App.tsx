@@ -305,21 +305,21 @@ function App() {
             </div>
             <div className="changelog-body">
               <div className="changelog-version">
-                <span className="version-tag">v1.1.1</span>
-                <span className="version-date">2026-06-02</span>
+                <span className="version-tag">v1.2.0</span>
+                <span className="version-date">2026-06-03</span>
               </div>
               <div className="changelog-section">
-                <h3>AI Improvements</h3>
+                <h3>Ollama Integration</h3>
                 <ul>
-                  <li>Enhanced system prompt for more creative item combinations</li>
-                  <li>AI considers real-world reactions, abstract connections, cause-and-effect</li>
-                  <li>Better progression: simple → complex items</li>
-                  <li>Increased temperature for more variety</li>
+                  <li>Local AI inference — no more rate limits</li>
+                  <li>Running qwen2.5:7b model on VPS</li>
+                  <li>Always available, consistent responses</li>
+                  <li>No external API key required</li>
                 </ul>
               </div>
 
               <div className="changelog-version changelog-version-prev">
-                <span className="version-tag">v1.1.0</span>
+                <span className="version-tag">v1.1.1</span>
                 <span className="version-date">2026-06-02</span>
               </div>
               <div className="changelog-section">

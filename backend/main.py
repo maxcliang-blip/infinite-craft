@@ -21,8 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+if not OLLAMA_URL.startswith("http"):
+    OLLAMA_URL = "http://" + OLLAMA_URL
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 DB_PATH = os.path.join(os.path.dirname(__file__), "recipes.db")
 
 def get_db():
@@ -129,29 +131,32 @@ class CombineRequest(BaseModel):
     first: str
     second: str
 
-SYSTEM_PROMPT = """You are a creative item-discovery engine for a crafting game. Given two elements, invent a NEW, INTERESTING item that their combination produces.
+SYSTEM_PROMPT = """You are a creative item-discovery engine for a crafting game.
 
-CORE RULES:
-1. NEVER return one of the input elements
-2. ALWAYS return something different and exciting
-3. Names must be 1-3 words, Title Case
-4. Return ONLY valid JSON: {"name": "ResultName", "emoji": "🔹"}
+When given two elements, invent ONE NEW item that their combination produces.
 
-THINK ABOUT:
-- Real-world reactions (Fire + Water = Steam, Earth + Fire = Lava)
-- Abstract connections (Fire + Music = Jazz, Time + Stone = Fossil)
-- Cause and effect (Rain + Fire = Steam, Wind + Sand = Dune)
-- Technology and inventions (Metal + Electricity = Wire)
-- Nature and life (Plant + Water = Algae, Earth + Life = Human)
-- Materials and compounds (Sand + Fire = Glass, Mud + Fire = Brick)
+STRICT RULES:
+1. NEVER return either input element as the result
+2. NEVER return both elements joined together
+3. ALWAYS create something new and different
+4. Return ONLY this JSON format: {"name": "ResultName", "emoji": "🔹"}
+5. Name must be 1-3 words, Title Case
+6. Emoji must be a SINGLE emoji character
 
-PREFERENCES:
-- Specific items over generic ones (Volcano not Hot Mountain)
-- Interesting discoveries over obvious results
-- Items that lead to more combinations (progressive gameplay)
-- Mix literal and abstract thinking
+THINK about:
+- Physical reactions: melting, burning, growing, aging
+- Materials: compounds, mixtures, alloys
+- Nature: plants, animals, weather, geology
+- Human creations: tools, buildings, art, technology
+- Abstract ideas: energy, time, emotions
 
-Output ONLY the JSON. No explanations, no markdown."""
+EXAMPLES:
+Fire + Water = {"name": "Steam", "emoji": "♨️"}
+Earth + Fire = {"name": "Lava", "emoji": "🌋"}
+Time + Stone = {"name": "Fossil", "emoji": "🦴"}
+Sand + Fire = {"name": "Glass", "emoji": "🔮"}
+
+Output ONLY the JSON. Nothing else."""
 
 def get_cached(cache_key: str) -> Optional[dict]:
     conn = get_db()
@@ -170,54 +175,44 @@ def save_recipe(cache_key: str, first: str, second: str, name: str, emoji: str):
     conn.commit()
     conn.close()
 
+@app.on_event("startup")
+def startup():
+    print(f"Infinite Craft started with Ollama: {OLLAMA_URL}, model: {OLLAMA_MODEL}")
+
 @app.post("/api/combine")
 async def combine(req: CombineRequest):
-    if not API_KEY or API_KEY == "sk-or-v1-":
-        raise HTTPException(status_code=500, detail="API key not configured")
-
     cache_key = make_cache_key(req.first, req.second)
 
     if cache_key in STATIC_RECIPES:
         r = STATIC_RECIPES[cache_key]
         return make_response(r["name"], r["emoji"])
 
-    # Check persistent cache
     cached = get_cached(cache_key)
     if cached:
         return cached
-
-    # Call AI
     for attempt in range(2):
         try:
             async with AsyncClient() as client:
                 resp = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {API_KEY}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "http://localhost:5173",
-                        "X-Title": "Infinite Craft",
-                    },
+                    f"{OLLAMA_URL}/api/chat",
+                    headers={"Content-Type": "application/json"},
                     json={
-                        "model": MODEL,
+                        "model": OLLAMA_MODEL,
                         "messages": [
                             {"role": "system", "content": SYSTEM_PROMPT},
                             {"role": "user", "content": f"Combine: {req.first} + {req.second}. Return only JSON like {{\"name\": \"Something\", \"emoji\": \"🔹\"}}"},
                         ],
-                        "temperature": 0.7,
-                        "max_tokens": 80,
+                        "options": {
+                            "temperature": 0.7,
+                            "num_predict": 80,
+                        },
+                        "stream": False,
                     },
-                    timeout=15.0,
+                    timeout=120.0,
                 )
 
             data = resp.json()
-
-            if "error" in data:
-                if attempt < 1:
-                    continue
-                return make_response("Unknown", "🔹")
-
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            content = data.get("message", {}).get("content", "")
             if not content or not isinstance(content, str):
                 if attempt < 1:
                     continue
@@ -235,9 +230,15 @@ async def combine(req: CombineRequest):
             if not emoji or not isinstance(emoji, str) or len(emoji) > 4:
                 emoji = get_emoji(name)
 
-            # Save to database
-            save_recipe(cache_key, req.first, req.second, name, emoji)
+            first_norm = normalize(req.first)
+            second_norm = normalize(req.second)
+            name_norm = normalize(name)
+            if name_norm == first_norm or name_norm == second_norm:
+                if attempt < 1:
+                    continue
+                return make_response("Unknown", "🔹")
 
+            save_recipe(cache_key, req.first, req.second, name, emoji)
             return make_response(name, emoji)
 
         except (json.JSONDecodeError, KeyError):
@@ -254,7 +255,7 @@ async def health():
     conn = get_db()
     count = conn.execute("SELECT COUNT(*) FROM ai_recipes").fetchone()[0]
     conn.close()
-    return {"status": "ok", "db_recipes": count, "static_recipes": len(STATIC_RECIPES)}
+    return {"status": "ok", "model": OLLAMA_MODEL, "db_recipes": count, "static_recipes": len(STATIC_RECIPES)}
 
 @app.get("/api/recipes")
 async def list_recipes():
